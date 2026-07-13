@@ -5,7 +5,7 @@ import StatusBadge from "./StatusBadge";
 export default function CelebrityCard({ celebrity }: { celebrity: Celebrity }) {
   return (
     <Link
-      to={`/celebrities/${celebrity.id}`}
+      to={`/admin/celebrities/${celebrity.id}`}
       className="block bg-gray-800 border border-gray-700 rounded-lg p-5 hover:border-purple-500/50 hover:bg-gray-800/80 transition-colors"
     >
       <div className="flex items-start justify-between mb-2">

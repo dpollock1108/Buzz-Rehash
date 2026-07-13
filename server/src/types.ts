@@ -7,7 +7,25 @@ export type RelationshipType =
   | "collaborator"
   | "nemesis"
   | "family"
-  | "complicated";
+  | "complicated"
+  | "dating"
+  | "engaged"
+  | "married"
+  | "situationship";
+
+export const RELATIONSHIP_TYPES: RelationshipType[] = [
+  "friend",
+  "rival",
+  "ex",
+  "collaborator",
+  "nemesis",
+  "family",
+  "complicated",
+  "dating",
+  "engaged",
+  "married",
+  "situationship",
+];
 
 export interface CelebrityAttributes {
   age?: number;
@@ -38,7 +56,132 @@ export interface CelebrityRelationship {
   updatedAt: string;
 }
 
+/** Relationship joined with both celebrities' display info. */
+export interface RelationshipWithNames extends CelebrityRelationship {
+  celebrityAName: string;
+  celebrityAHandle: string;
+  celebrityBName: string;
+  celebrityBHandle: string;
+}
+
 export interface GenerationRequest {
   genres?: string[];
   vibeKeywords?: string[];
+}
+
+export type EventType =
+  | "feud"
+  | "romance"
+  | "breakup"
+  | "scandal"
+  | "collab"
+  | "announcement"
+  | "mishap"
+  | "milestone";
+
+export const EVENT_TYPES: EventType[] = [
+  "feud",
+  "romance",
+  "breakup",
+  "scandal",
+  "collab",
+  "announcement",
+  "mishap",
+  "milestone",
+];
+
+export type EventStatus = "proposed" | "active" | "resolved" | "denied";
+
+export interface EventParticipant {
+  celebrityId: string;
+  role: string;
+  name: string;
+  handle: string;
+}
+
+/** A relationship mutation an event proposes; applied when the event is approved. */
+export interface RelationshipChange {
+  celebrityAId: string;
+  celebrityBId: string;
+  action: "set" | "remove";
+  type?: RelationshipType;
+  description?: string;
+}
+
+export interface NarrativeEvent {
+  id: string;
+  title: string;
+  description: string;
+  type: EventType;
+  status: EventStatus;
+  relationshipChanges: RelationshipChange[];
+  participants: EventParticipant[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EventGenerationRequest {
+  type?: EventType;
+  prompt?: string;
+  celebrityIds?: string[];
+}
+
+export interface Post {
+  id: string;
+  celebrityId: string;
+  content: string;
+  eventId?: string;
+  replyToPostId?: string;
+  createdAt: string;
+}
+
+/** Post joined with author info and engagement counts, as served to the feed. */
+export interface FeedPost extends Post {
+  celebrityName: string;
+  celebrityHandle: string;
+  likeCount: number;
+  commentCount: number;
+  /** Whether the requesting user has liked this post (set when signed in). */
+  likedByMe?: boolean;
+}
+
+export interface PostGenerationRequest {
+  celebrityId: string;
+  topic?: string;
+  eventId?: string;
+}
+
+export interface Comment {
+  id: string;
+  postId: string;
+  userId?: string;
+  authorName: string;
+  content: string;
+  createdAt: string;
+}
+
+export type UserRole = "user" | "admin";
+export type AuthProvider = "oidc" | "dev";
+
+export interface User {
+  id: string;
+  provider: AuthProvider;
+  subject: string;
+  email?: string;
+  displayName: string;
+  avatarUrl?: string;
+  role: UserRole;
+  createdAt: string;
+}
+
+export type MemorySourceType = "event" | "post" | "relationship" | "manual";
+
+export interface CelebrityMemory {
+  id: string;
+  celebrityId: string;
+  content: string;
+  sourceType: MemorySourceType;
+  sourceId?: string;
+  importance: number;
+  createdAt: string;
 }

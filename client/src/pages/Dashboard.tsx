@@ -26,7 +26,7 @@ export default function Dashboard() {
       if (vibeKeywords) request.vibeKeywords = vibeKeywords.split(",").map((s) => s.trim());
 
       const celebrity = await generateCelebrity(request);
-      navigate(`/celebrities/${celebrity.id}`);
+      navigate(`/admin/celebrities/${celebrity.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generation failed");
     } finally {

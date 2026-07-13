@@ -1,20 +1,37 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getCelebrity, updateCelebrityStatus } from "../api/client";
-import type { Celebrity } from "../types";
+import {
+  getCelebrity,
+  getMemories,
+  listPosts,
+  listRelationships,
+  updateCelebrityStatus,
+} from "../api/client";
+import type { Celebrity, CelebrityMemory, FeedPost, RelationshipWithNames } from "../types";
+import PostCard from "../components/PostCard";
 import StatusBadge from "../components/StatusBadge";
 
 export default function CelebrityDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [celebrity, setCelebrity] = useState<Celebrity | null>(null);
+  const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [relationships, setRelationships] = useState<RelationshipWithNames[]>([]);
+  const [memories, setMemories] = useState<CelebrityMemory[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     if (!id) return;
     getCelebrity(id)
-      .then(setCelebrity)
+      .then((c) => {
+        setCelebrity(c);
+        if (c.status === "approved") {
+          listPosts({ celebrityId: id }).then(setPosts).catch(console.error);
+          listRelationships(id).then(setRelationships).catch(console.error);
+          getMemories(id).then(setMemories).catch(console.error);
+        }
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [id]);
@@ -24,7 +41,7 @@ export default function CelebrityDetail() {
     setUpdating(true);
     try {
       await updateCelebrityStatus(id, status);
-      navigate("/pending");
+      navigate("/admin/pending");
     } catch (err) {
       console.error(err);
     } finally {
@@ -111,6 +128,62 @@ export default function CelebrityDetail() {
           )}
         </div>
       </section>
+
+      {/* Relationships */}
+      {celebrity.status === "approved" && relationships.length > 0 && (
+        <section className="mb-6">
+          <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">
+            Relationships
+          </h3>
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-2">
+            {relationships.map((r) => {
+              const other =
+                r.celebrityAId === celebrity.id
+                  ? `${r.celebrityBName} (${r.celebrityBHandle})`
+                  : `${r.celebrityAName} (${r.celebrityAHandle})`;
+              return (
+                <div key={r.id} className="flex justify-between gap-3 text-sm">
+                  <span className="text-gray-300">{other}</span>
+                  <span className="text-purple-400">{r.type}</span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Memories */}
+      {celebrity.status === "approved" && memories.length > 0 && (
+        <section className="mb-6">
+          <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">
+            Memories
+          </h3>
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-2">
+            {memories.map((m) => (
+              <div key={m.id} className="text-sm text-gray-300 flex gap-2">
+                <span className="text-gray-600 shrink-0" title={`Importance ${m.importance}/10`}>
+                  {m.importance}/10
+                </span>
+                <span>{m.content}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Posts */}
+      {celebrity.status === "approved" && posts.length > 0 && (
+        <section className="mb-8">
+          <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">
+            Posts
+          </h3>
+          <div className="space-y-3">
+            {posts.map((p) => (
+              <PostCard key={p.id} post={p} celebrityLinkBase="/admin/celebrities" />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Actions */}
       {celebrity.status === "pending" && (

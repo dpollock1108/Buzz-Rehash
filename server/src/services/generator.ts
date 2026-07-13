@@ -1,11 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
 import type { Celebrity, GenerationRequest } from "../types.js";
-
-let _client: Anthropic | null = null;
-function getClient(): Anthropic {
-  if (!_client) _client = new Anthropic();
-  return _client;
-}
+import { generateJson } from "./claude.js";
 
 type GeneratedCelebrity = Omit<Celebrity, "id" | "status" | "createdAt" | "updatedAt">;
 
@@ -19,21 +13,45 @@ Key guidelines:
 - Personalities should have clear quirks, contradictions, and depth; they can also be incredibly basic - many celebrities are.
 - Backstories should be entertaining — these are internet celebrities after all
 - Each celebrity should feel like they could generate engaging, drama-filled content
-- Do NOT invent relationships with other celebrities — relationships are managed separately once the ecosystem has multiple approved celebrities
+- Do NOT invent relationships with other celebrities — relationships are managed separately once the ecosystem has multiple approved celebrities`;
 
-Respond with ONLY valid JSON (no markdown fences, no explanation) matching this exact schema:
-{
-  "name": "string - full name",
-  "handle": "string - social media handle with @ prefix",
-  "bio": "string - 2-3 sentence social media bio",
-  "personality": "string - paragraph describing their temperament, quirks, contradictions, what makes them tick",
-  "writingVoice": "string - detailed description of how they write posts: tone, slang, emoji usage, formatting habits, punctuation quirks, sentence structure, verbal tics",
-  "backstory": "string - 2-3 paragraph origin story of how they became famous",
-  "attributes": {
-    "age": "number",
-    "genres": ["array of strings - their content niches, can be multiple (e.g. 'fitness', 'lifestyle', 'drama')"]
-  }
-}`;
+const CELEBRITY_SCHEMA = {
+  type: "object",
+  properties: {
+    name: { type: "string", description: "Full name" },
+    handle: { type: "string", description: "Social media handle with @ prefix" },
+    bio: { type: "string", description: "2-3 sentence social media bio" },
+    personality: {
+      type: "string",
+      description:
+        "Paragraph describing their temperament, quirks, contradictions, what makes them tick",
+    },
+    writingVoice: {
+      type: "string",
+      description:
+        "Detailed description of how they write posts: tone, slang, emoji usage, formatting habits, punctuation quirks, sentence structure, verbal tics",
+    },
+    backstory: {
+      type: "string",
+      description: "2-3 paragraph origin story of how they became famous",
+    },
+    attributes: {
+      type: "object",
+      properties: {
+        age: { type: "integer" },
+        genres: {
+          type: "array",
+          items: { type: "string" },
+          description: "Content niches, e.g. 'fitness', 'lifestyle', 'drama'",
+        },
+      },
+      required: ["age", "genres"],
+      additionalProperties: false,
+    },
+  },
+  required: ["name", "handle", "bio", "personality", "writingVoice", "backstory", "attributes"],
+  additionalProperties: false,
+};
 
 export async function generateCelebrity(request?: GenerationRequest): Promise<GeneratedCelebrity> {
   let userMessage = "Generate a fictional celebrity profile for the Buzz Rehash universe.";
@@ -45,39 +63,11 @@ export async function generateCelebrity(request?: GenerationRequest): Promise<Ge
     userMessage += ` Vibe keywords to inspire the character: ${request.vibeKeywords.join(", ")}.`;
   }
 
-  userMessage += "\n\nMake them unique, memorable, and full of drama potential. Respond with ONLY the JSON object.";
+  userMessage += "\n\nMake them unique, memorable, and full of drama potential.";
 
-  const response = await getClient().messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 2048,
+  return generateJson<GeneratedCelebrity>({
     system: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: userMessage }],
+    user: userMessage,
+    schema: CELEBRITY_SCHEMA,
   });
-
-  const textBlock = response.content.find((block) => block.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new Error("No text content in Claude response");
-  }
-
-  let jsonText = textBlock.text.trim();
-  // Strip markdown code fences if present
-  if (jsonText.startsWith("```")) {
-    jsonText = jsonText.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-  }
-
-  const parsed = JSON.parse(jsonText) as GeneratedCelebrity;
-
-  // Basic validation
-  const required = ["name", "handle", "bio", "personality", "writingVoice", "backstory"] as const;
-  for (const field of required) {
-    if (!parsed[field] || typeof parsed[field] !== "string") {
-      throw new Error(`Generated celebrity missing required field: ${field}`);
-    }
-  }
-
-  if (!parsed.attributes || typeof parsed.attributes !== "object") {
-    parsed.attributes = {};
-  }
-
-  return parsed;
 }

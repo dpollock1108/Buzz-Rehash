@@ -68,9 +68,16 @@ export function getPostById(id: string): FeedPost | undefined {
   return row ? rowToFeedPost(row) : undefined;
 }
 
+// created_at is stored as JS toISOString(); this produces the same shape from
+// SQLite's clock so string comparison is exact (plain datetime('now') formats
+// with a space instead of the ISO "T" and would misorder same-day boundaries).
+const SQLITE_NOW_ISO = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?)";
+
 export function listFeed(options?: {
   celebrityId?: string;
   eventId?: string;
+  /** Only posts newer than this many hours. */
+  sinceHours?: number;
   limit?: number;
   offset?: number;
 }): FeedPost[] {
@@ -84,6 +91,10 @@ export function listFeed(options?: {
   if (options?.eventId) {
     conditions.push("p.event_id = ?");
     params.push(options.eventId);
+  }
+  if (options?.sinceHours !== undefined) {
+    conditions.push(`p.created_at > ${SQLITE_NOW_ISO}`);
+    params.push(`-${options.sinceHours} hours`);
   }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const rows = db
@@ -140,36 +151,50 @@ export function addComment(data: {
   return rowToComment(row);
 }
 
+export interface ThreadAwaitingReply {
+  postId: string;
+  celebrityId: string;
+  postCreatedAt: string;
+  /** Fan comments since the celebrity's last reply in the thread. */
+  pendingCount: number;
+}
+
 /**
  * User comments awaiting a celebrity response: threads on a celebrity's posts
  * where fans commented after the celebrity's last reply (or with no reply yet).
+ * Only fresh fan comments count — stale threads age out of the pool entirely.
  */
-export function commentsAwaitingReply(limit = 20): {
-  postId: string;
-  celebrityId: string;
-  comments: Comment[];
-}[] {
+export function commentsAwaitingReply(withinHours = 72, limit = 20): ThreadAwaitingReply[] {
   const db = getDb();
   const rows = db
     .prepare(
-      `SELECT DISTINCT p.id AS post_id, p.celebrity_id
+      `SELECT p.id AS post_id, p.celebrity_id, p.created_at AS post_created_at,
+              COUNT(*) AS pending_count
        FROM comments cm
        JOIN posts p ON p.id = cm.post_id
        WHERE cm.celebrity_id IS NULL
+         AND cm.created_at > ${SQLITE_NOW_ISO}
          AND cm.created_at > COALESCE(
            (SELECT MAX(c2.created_at) FROM comments c2
             WHERE c2.post_id = cm.post_id AND c2.celebrity_id IS NOT NULL),
            ''
          )
-       ORDER BY cm.created_at DESC
+       GROUP BY p.id, p.celebrity_id, p.created_at
+       ORDER BY MAX(cm.created_at) DESC
        LIMIT ?`
     )
-    .all(limit) as { post_id: string; celebrity_id: string }[];
+    .all(`-${withinHours} hours`, limit) as {
+    post_id: string;
+    celebrity_id: string;
+    post_created_at: string;
+    pending_count: number;
+  }[];
 
   return rows.map((r) => ({
     postId: r.post_id,
     celebrityId: r.celebrity_id,
-    comments: listComments(r.post_id),
+    postCreatedAt: r.post_created_at,
+    pendingCount: r.pending_count,
   }));
 }
 

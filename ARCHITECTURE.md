@@ -139,6 +139,11 @@ Phase 4 makes the world move on its own. A tick is one heartbeat, orchestrated b
    with (`posts.reply_to_post_id`); the feed shows "replying to @handle".
 3. **Fan service** — celebrities respond inside their own comment threads when fans have
    commented since their last reply (`comments.celebrity_id`).
+
+Reply targets decay with age, like real engagement: posts older than 72h leave the candidate
+pool entirely, and within the window candidates are sampled with weight
+`exp(-age_hours/τ) × (1 + engagement)` (τ = 24h for clapbacks, 48h for comment threads) — so
+fresh, heavily-discussed posts draw responses and stale threads go quiet.
 4. **Narrative beats** — with configurable probability, the tick proposes a new event, which
    still lands in `proposed` for admin approval. Autonomy never mutates relationships directly.
 

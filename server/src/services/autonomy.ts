@@ -78,6 +78,38 @@ function pickRandom<T>(items: T[], count: number): T[] {
   return picked;
 }
 
+/** Sample without replacement, probability proportional to weight. */
+function pickWeighted<T>(items: T[], weightOf: (item: T) => number, count: number): T[] {
+  const pool = items.map((item) => ({ item, weight: Math.max(weightOf(item), 0) }));
+  const picked: T[] = [];
+  while (pool.length > 0 && picked.length < count) {
+    const total = pool.reduce((sum, p) => sum + p.weight, 0);
+    if (total <= 0) {
+      picked.push(...pickRandom(pool.map((p) => p.item), count - picked.length));
+      break;
+    }
+    let roll = Math.random() * total;
+    const index = pool.findIndex((p) => (roll -= p.weight) <= 0);
+    picked.push(pool.splice(index === -1 ? pool.length - 1 : index, 1)[0]!.item);
+  }
+  return picked;
+}
+
+function ageHours(isoTimestamp: string): number {
+  return Math.max(0, (Date.now() - new Date(isoTimestamp).getTime()) / (60 * 60 * 1000));
+}
+
+/**
+ * Half-life-style decay: fresh posts dominate, and nothing older than the
+ * candidate window (below) is considered at all.
+ */
+function recencyWeight(isoTimestamp: string, tauHours: number): number {
+  return Math.exp(-ageHours(isoTimestamp) / tauHours);
+}
+
+/** Posts older than this are no longer reply/comment candidates. */
+const REPLY_WINDOW_HOURS = 72;
+
 let tickInProgress = false;
 
 export function isTickRunning(): boolean {
@@ -131,9 +163,13 @@ export async function runTick(trigger: "scheduled" | "manual"): Promise<TickRun>
       }
     }
 
-    // 2. Celebrity-to-celebrity replies, biased toward existing relationships
+    // 2. Celebrity-to-celebrity replies, biased toward existing relationships.
+    // Only fresh posts are candidates, and fresher + more-discussed posts are
+    // proportionally more likely to draw a reply.
     if (settings.maxRepliesPerTick > 0) {
-      const recentPosts = listFeed({ limit: 15 }).filter((p) => !p.replyToPostId);
+      const recentPosts = listFeed({ limit: 30, sinceHours: REPLY_WINDOW_HOURS }).filter(
+        (p) => !p.replyToPostId
+      );
       const relationships = listRelationships();
       const related = (a: string, b: string) =>
         relationships.some(
@@ -142,8 +178,14 @@ export async function runTick(trigger: "scheduled" | "manual"): Promise<TickRun>
             (r.celebrityAId === b && r.celebrityBId === a)
         );
 
-      const candidates: { replierId: string; replierHandle: string; postId: string }[] = [];
+      const candidates: {
+        replierId: string;
+        replierHandle: string;
+        postId: string;
+        weight: number;
+      }[] = [];
       for (const post of recentPosts) {
+        const weight = recencyWeight(post.createdAt, 24) * (1 + post.commentCount);
         for (const celebrity of cast) {
           if (celebrity.id === post.celebrityId) continue;
           if (related(celebrity.id, post.celebrityId)) {
@@ -151,11 +193,13 @@ export async function runTick(trigger: "scheduled" | "manual"): Promise<TickRun>
               replierId: celebrity.id,
               replierHandle: celebrity.handle,
               postId: post.id,
+              weight,
             });
           }
         }
       }
-      for (const pick of pickRandom(candidates, settings.maxRepliesPerTick)) {
+      const picks = pickWeighted(candidates, (c) => c.weight, settings.maxRepliesPerTick);
+      for (const pick of picks) {
         try {
           await generateReplyPost(pick.replierId, pick.postId);
           summary.repliesCreated++;
@@ -166,9 +210,15 @@ export async function runTick(trigger: "scheduled" | "manual"): Promise<TickRun>
       }
     }
 
-    // 3. Celebrities respond to fans in their comment threads
+    // 3. Celebrities respond to fans in their comment threads. Stale threads
+    // age out of the pool (see commentsAwaitingReply); among fresh ones,
+    // newer posts with more unanswered fan comments get answered first.
     if (settings.maxCommentRepliesPerTick > 0) {
-      const threads = pickRandom(commentsAwaitingReply(), settings.maxCommentRepliesPerTick);
+      const threads = pickWeighted(
+        commentsAwaitingReply(REPLY_WINDOW_HOURS),
+        (t) => recencyWeight(t.postCreatedAt, 48) * (1 + t.pendingCount),
+        settings.maxCommentRepliesPerTick
+      );
       for (const thread of threads) {
         try {
           await generateCommentReply(thread.postId);

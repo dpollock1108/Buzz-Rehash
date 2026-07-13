@@ -142,15 +142,50 @@ export interface FeedPost {
   likeCount: number;
   commentCount: number;
   likedByMe?: boolean;
+  replyToHandle?: string;
+  replyToName?: string;
 }
 
 export interface Comment {
   id: string;
   postId: string;
   userId?: string;
+  celebrityId?: string;
   authorName: string;
   content: string;
   createdAt: string;
+}
+
+export interface AutonomySettings {
+  enabled: boolean;
+  intervalMinutes: number;
+  maxPostsPerTick: number;
+  maxRepliesPerTick: number;
+  maxCommentRepliesPerTick: number;
+  eventChance: number;
+}
+
+export interface TickSummary {
+  postsCreated: number;
+  repliesCreated: number;
+  commentRepliesCreated: number;
+  eventProposed: string | null;
+  details: string[];
+  errors: string[];
+}
+
+export interface TickRun {
+  id: string;
+  startedAt: string;
+  finishedAt?: string;
+  trigger: "scheduled" | "manual";
+  summary: TickSummary;
+}
+
+export interface AutonomyStatus {
+  settings: AutonomySettings;
+  tickRunning: boolean;
+  recentRuns: TickRun[];
 }
 
 export type UserRole = "user" | "admin";

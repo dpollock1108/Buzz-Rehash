@@ -74,6 +74,11 @@ export default function PostCard({
           {new Date(post.createdAt).toLocaleString()}
         </span>
       </div>
+      {post.replyToHandle && (
+        <p className="text-xs text-gray-500 mb-1.5">
+          replying to <span className="text-purple-400">{post.replyToHandle}</span>
+        </p>
+      )}
       <p className="text-gray-200 whitespace-pre-line mb-3">{post.content}</p>
       <div className="flex gap-4 text-sm">
         <button
@@ -98,7 +103,16 @@ export default function PostCard({
         <div className="mt-4 border-t border-gray-700 pt-3 space-y-2">
           {(comments ?? []).map((c) => (
             <div key={c.id} className="text-sm">
-              <span className="text-gray-300 font-medium">{c.authorName}</span>{" "}
+              {c.celebrityId ? (
+                <span className="text-purple-300 font-medium">
+                  {c.authorName}
+                  <span className="ml-1 text-[10px] uppercase tracking-wider bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded">
+                    celeb
+                  </span>
+                </span>
+              ) : (
+                <span className="text-gray-300 font-medium">{c.authorName}</span>
+              )}{" "}
               <span className="text-gray-400">{c.content}</span>
             </div>
           ))}

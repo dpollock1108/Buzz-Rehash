@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { generateCelebrity, getStats } from "../api/client";
+import AutonomyPanel from "../components/AutonomyPanel";
 import type { StatsResponse } from "../types";
 
 export default function Dashboard() {
@@ -88,6 +89,9 @@ export default function Dashboard() {
         </button>
         {error && <p className="mt-3 text-red-400 text-sm">{error}</p>}
       </div>
+
+      {/* Autonomy */}
+      <AutonomyPanel />
     </div>
   );
 }

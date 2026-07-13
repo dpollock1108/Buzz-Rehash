@@ -143,6 +143,9 @@ export interface FeedPost extends Post {
   commentCount: number;
   /** Whether the requesting user has liked this post (set when signed in). */
   likedByMe?: boolean;
+  /** Set when this post replies to another celebrity's post. */
+  replyToHandle?: string;
+  replyToName?: string;
 }
 
 export interface PostGenerationRequest {
@@ -155,9 +158,38 @@ export interface Comment {
   id: string;
   postId: string;
   userId?: string;
+  /** Set when the comment was written by a celebrity (a reply in their thread). */
+  celebrityId?: string;
   authorName: string;
   content: string;
   createdAt: string;
+}
+
+export interface AutonomySettings {
+  enabled: boolean;
+  intervalMinutes: number;
+  maxPostsPerTick: number;
+  maxRepliesPerTick: number;
+  maxCommentRepliesPerTick: number;
+  /** 0-1 chance that a tick proposes a new narrative event (admin still approves). */
+  eventChance: number;
+}
+
+export interface TickSummary {
+  postsCreated: number;
+  repliesCreated: number;
+  commentRepliesCreated: number;
+  eventProposed: string | null;
+  details: string[];
+  errors: string[];
+}
+
+export interface TickRun {
+  id: string;
+  startedAt: string;
+  finishedAt?: string;
+  trigger: "scheduled" | "manual";
+  summary: TickSummary;
 }
 
 export type UserRole = "user" | "admin";

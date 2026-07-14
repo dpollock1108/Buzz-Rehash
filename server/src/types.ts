@@ -171,6 +171,8 @@ export interface AutonomySettings {
   maxPostsPerTick: number;
   maxRepliesPerTick: number;
   maxCommentRepliesPerTick: number;
+  /** Comments celebrities drop on each other's posts per tick. */
+  maxPeerCommentsPerTick: number;
   /** 0-1 chance that a tick proposes a new narrative event (admin still approves). */
   eventChance: number;
 }
@@ -179,6 +181,7 @@ export interface TickSummary {
   postsCreated: number;
   repliesCreated: number;
   commentRepliesCreated: number;
+  peerCommentsCreated: number;
   eventProposed: string | null;
   details: string[];
   errors: string[];

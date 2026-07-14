@@ -35,10 +35,12 @@ function NumberField({
 
 function RunSummary({ run }: { run: TickRun }) {
   const s = run.summary;
+  const peerComments = s.peerCommentsCreated ?? 0;
   const parts = [
     s.postsCreated > 0 && `${s.postsCreated} post${s.postsCreated === 1 ? "" : "s"}`,
     s.repliesCreated > 0 && `${s.repliesCreated} repl${s.repliesCreated === 1 ? "y" : "ies"}`,
     s.commentRepliesCreated > 0 && `${s.commentRepliesCreated} comment repl${s.commentRepliesCreated === 1 ? "y" : "ies"}`,
+    peerComments > 0 && `${peerComments} peer comment${peerComments === 1 ? "" : "s"}`,
     s.eventProposed && `event proposed: "${s.eventProposed}"`,
   ].filter(Boolean);
   return (
@@ -135,7 +137,7 @@ export default function AutonomyPanel() {
         </label>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-4">
         <NumberField
           label="Interval (min)"
           value={settings.intervalMinutes}
@@ -161,6 +163,13 @@ export default function AutonomyPanel() {
           label="Comment replies"
           value={settings.maxCommentRepliesPerTick}
           onChange={(v) => setSettings({ ...settings, maxCommentRepliesPerTick: v })}
+          min={0}
+          max={10}
+        />
+        <NumberField
+          label="Peer comments"
+          value={settings.maxPeerCommentsPerTick}
+          onChange={(v) => setSettings({ ...settings, maxPeerCommentsPerTick: v })}
           min={0}
           max={10}
         />

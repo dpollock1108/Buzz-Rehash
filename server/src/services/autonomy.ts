@@ -3,8 +3,13 @@ import { getDb } from "../db/connection.js";
 import type { AutonomySettings, TickRun, TickSummary } from "../types.js";
 import { listByStatus } from "./celebrity.js";
 import { generateEvent } from "./narrative.js";
-import { commentsAwaitingReply, listFeed } from "./post.js";
-import { generateCommentReply, generatePost, generateReplyPost } from "./postGenerator.js";
+import { commentsAwaitingReply, listComments, listFeed } from "./post.js";
+import {
+  generateCommentReply,
+  generatePeerComment,
+  generatePost,
+  generateReplyPost,
+} from "./postGenerator.js";
 import { listRelationships } from "./relationship.js";
 
 const DEFAULT_SETTINGS: AutonomySettings = {
@@ -13,6 +18,7 @@ const DEFAULT_SETTINGS: AutonomySettings = {
   maxPostsPerTick: 2,
   maxRepliesPerTick: 1,
   maxCommentRepliesPerTick: 2,
+  maxPeerCommentsPerTick: 2,
   eventChance: 0.25,
 };
 
@@ -32,6 +38,7 @@ export function updateSettings(patch: Partial<AutonomySettings>): AutonomySettin
   merged.maxPostsPerTick = Math.max(0, Math.min(10, merged.maxPostsPerTick));
   merged.maxRepliesPerTick = Math.max(0, Math.min(10, merged.maxRepliesPerTick));
   merged.maxCommentRepliesPerTick = Math.max(0, Math.min(10, merged.maxCommentRepliesPerTick));
+  merged.maxPeerCommentsPerTick = Math.max(0, Math.min(10, merged.maxPeerCommentsPerTick));
   merged.eventChance = Math.max(0, Math.min(1, merged.eventChance));
   getDb()
     .prepare(
@@ -132,6 +139,7 @@ export async function runTick(trigger: "scheduled" | "manual"): Promise<TickRun>
     postsCreated: 0,
     repliesCreated: 0,
     commentRepliesCreated: 0,
+    peerCommentsCreated: 0,
     eventProposed: null,
     details: [],
     errors: [],
@@ -144,6 +152,13 @@ export async function runTick(trigger: "scheduled" | "manual"): Promise<TickRun>
 
   try {
     const cast = listByStatus("approved");
+    const relationships = listRelationships();
+    const related = (a: string, b: string) =>
+      relationships.some(
+        (r) =>
+          (r.celebrityAId === a && r.celebrityBId === b) ||
+          (r.celebrityAId === b && r.celebrityBId === a)
+      );
 
     // 1. Slice-of-life posts, preferring celebrities who haven't posted lately
     if (cast.length > 0 && settings.maxPostsPerTick > 0) {
@@ -170,13 +185,6 @@ export async function runTick(trigger: "scheduled" | "manual"): Promise<TickRun>
       const recentPosts = listFeed({ limit: 30, sinceHours: REPLY_WINDOW_HOURS }).filter(
         (p) => !p.replyToPostId
       );
-      const relationships = listRelationships();
-      const related = (a: string, b: string) =>
-        relationships.some(
-          (r) =>
-            (r.celebrityAId === a && r.celebrityBId === b) ||
-            (r.celebrityAId === b && r.celebrityBId === a)
-        );
 
       const candidates: {
         replierId: string;
@@ -230,7 +238,51 @@ export async function runTick(trigger: "scheduled" | "manual"): Promise<TickRun>
       }
     }
 
-    // 4. Occasionally propose the next narrative beat (still admin-approved)
+    // 4. Celebrities drop comments on each other's posts — lighter-touch than
+    // a reply post, and how celebrities without a relationship first cross
+    // paths. Related pairs are weighted higher, but anyone can show up in
+    // anyone's comment section; one comment per celebrity per post.
+    if (settings.maxPeerCommentsPerTick > 0) {
+      const recentPosts = listFeed({ limit: 30, sinceHours: REPLY_WINDOW_HOURS });
+      const candidates: {
+        commenterId: string;
+        commenterHandle: string;
+        postId: string;
+        weight: number;
+      }[] = [];
+      for (const post of recentPosts) {
+        const alreadyCommented = new Set(
+          listComments(post.id)
+            .map((c) => c.celebrityId)
+            .filter(Boolean)
+        );
+        const baseWeight = recencyWeight(post.createdAt, 24) * (1 + post.commentCount);
+        for (const celebrity of cast) {
+          if (celebrity.id === post.celebrityId) continue;
+          if (alreadyCommented.has(celebrity.id)) continue;
+          candidates.push({
+            commenterId: celebrity.id,
+            commenterHandle: celebrity.handle,
+            postId: post.id,
+            weight: baseWeight * (related(celebrity.id, post.celebrityId) ? 3 : 1),
+          });
+        }
+      }
+      const picks = pickWeighted(candidates, (c) => c.weight, settings.maxPeerCommentsPerTick);
+      for (const pick of picks) {
+        try {
+          await generatePeerComment(pick.commenterId, pick.postId);
+          summary.peerCommentsCreated++;
+          summary.details.push(`${pick.commenterHandle} commented on a peer's post`);
+        } catch (error) {
+          summary.errors.push(
+            `peer comment by ${pick.commenterHandle}: ${(error as Error).message}`
+          );
+        }
+      }
+    }
+
+    // 5. Occasionally propose the next narrative beat (still admin-approved)
     if (cast.length >= 2 && Math.random() < settings.eventChance) {
       try {
         const event = await generateEvent();

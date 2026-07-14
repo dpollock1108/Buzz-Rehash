@@ -162,6 +162,7 @@ export interface AutonomySettings {
   maxPostsPerTick: number;
   maxRepliesPerTick: number;
   maxCommentRepliesPerTick: number;
+  maxPeerCommentsPerTick: number;
   eventChance: number;
 }
 
@@ -169,6 +170,8 @@ export interface TickSummary {
   postsCreated: number;
   repliesCreated: number;
   commentRepliesCreated: number;
+  /** May be absent on runs recorded before peer comments existed. */
+  peerCommentsCreated?: number;
   eventProposed: string | null;
   details: string[];
   errors: string[];

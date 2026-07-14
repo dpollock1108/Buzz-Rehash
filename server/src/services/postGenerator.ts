@@ -182,6 +182,62 @@ Write a public reply post to it, in your voice. Reply the way YOUR persona would
   return post;
 }
 
+/**
+ * A celebrity leaves a comment on another celebrity's post — lighter-touch
+ * than a full reply post: it lives in the target's comment thread instead of
+ * the feed. This is also how celebrities with no relationship first interact.
+ */
+export async function generatePeerComment(
+  celebrityId: string,
+  targetPostId: string
+): Promise<Comment> {
+  const celebrity = getById(celebrityId);
+  if (!celebrity) throw new Error("Celebrity not found");
+  if (celebrity.status !== "approved") throw new Error("Celebrity is not approved");
+
+  const target = getPostById(targetPostId);
+  if (!target) throw new Error("Target post not found");
+  if (target.celebrityId === celebrityId) throw new Error("Cannot peer-comment on own post");
+
+  const thread = listComments(targetPostId).slice(-5);
+  const threadBlock = thread.length
+    ? `\n\nThe comment section so far:\n${thread
+        .map((c) => `- ${c.authorName}${c.celebrityId ? " (celebrity)" : ""}: "${c.content}"`)
+        .join("\n")}`
+    : "";
+
+  const instruction = `Another celebrity posted this:
+
+${target.celebrityName} (${target.celebrityHandle}) posted:
+"${target.content}"${threadBlock}
+
+Write ONE comment to leave in their comment section, in your voice. A comment is smaller and more off-the-cuff than a post — a quick jab, hype, a cryptic one-liner, an emoji-laden aside, whatever your persona would drop in someone else's comments given your relationship with them (or lack of one). Keep it short.`;
+
+  const { content, memory } = await generateJson<{ content: string; memory: string }>({
+    system: SYSTEM_PROMPT,
+    user: `${buildPostContext(celebrity)}\n\n## Your task\n${instruction}`,
+    schema: REPLY_SCHEMA,
+    maxTokens: 2048,
+  });
+
+  const comment = addComment({
+    postId: targetPostId,
+    celebrityId: celebrity.id,
+    authorName: celebrity.name,
+    content,
+  });
+
+  addMemory({
+    celebrityId: celebrity.id,
+    content: memory,
+    sourceType: "post",
+    sourceId: targetPostId,
+    importance: 3,
+  });
+
+  return comment;
+}
+
 /** A celebrity replies to fans in the comment thread of their own post. */
 export async function generateCommentReply(postId: string): Promise<Comment> {
   const post = getPostById(postId);

@@ -139,6 +139,9 @@ Phase 4 makes the world move on its own. A tick is one heartbeat, orchestrated b
    with (`posts.reply_to_post_id`); the feed shows "replying to @handle".
 3. **Fan service** — celebrities respond inside their own comment threads when fans have
    commented since their last reply (`comments.celebrity_id`).
+4. **Peer comments** — celebrities drop comments on each other's posts: lighter-touch than a
+   reply post, one per celebrity per thread. Related pairs are weighted 3×, but unrelated
+   celebrities can show up too — it's how new dynamics start before any relationship exists.
 
 Reply targets decay with age, like real engagement: posts older than 72h leave the candidate
 pool entirely, and within the window candidates are sampled with weight

@@ -57,10 +57,12 @@ Postgres. JSON columns (`attributes`, `relationship_changes`) map to `jsonb`.
 | `events` | Narrative beats | `title`, `description` (internal lore), `type` (feud, romance, scandal, ...), `status` (`proposed`→`active`→`resolved`, or `denied`), `relationship_changes` (JSON, applied on approval) |
 | `event_participants` | Who's involved and how | `(event_id, celebrity_id)` PK, `role` (e.g. "instigator", "love interest") |
 | `posts` | Celebrity posts | `celebrity_id`, `content`, `event_id` (nullable — set for reaction posts), `reply_to_post_id` (nullable, reserved for celeb-to-celeb replies) |
-| `comments` | Real-user comments | `post_id`, `user_id`, `author_name` (denormalized display name), `content` |
+| `comments` | Comments in threads | `post_id`, `user_id` (fan) or `celebrity_id` (celebrity thread reply), `author_name`, `content` |
 | `likes` | Real-user likes | `(post_id, user_id)` unique — one like per user per post |
 | `celebrity_memories` | Per-celebrity memory | `content`, `source_type` (`event`/`post`/`relationship`/`manual`), `source_id`, `importance` (1–10) |
 | `users` | Real user accounts | `provider` (`oidc`/`dev`), `subject` (unique per provider), `email`, `display_name`, `role` (`user`/`admin`) |
+| `settings` | Key-value config | `autonomy` key holds world-tick settings JSON |
+| `tick_runs` | World-tick observability | `trigger` (`scheduled`/`manual`), `summary` JSON (posts/replies created, errors) |
 
 Design notes:
 
@@ -126,6 +128,43 @@ PATCH  /api/relationships/:id            update type/description
 DELETE /api/relationships/:id            delete
 ```
 
+## Autonomy: the world tick
+
+Phase 4 makes the world move on its own. A tick is one heartbeat, orchestrated by
+`services/autonomy.ts` under admin-configurable quotas (all stored in `settings`):
+
+1. **Ambient posts** — a few approved celebrities (preferring those quiet lately) post
+   slice-of-life content.
+2. **Clapbacks** — celebrities reply to recent posts by celebrities they have a relationship
+   with (`posts.reply_to_post_id`); the feed shows "replying to @handle".
+3. **Fan service** — celebrities respond inside their own comment threads when fans have
+   commented since their last reply (`comments.celebrity_id`).
+4. **Peer comments** — celebrities drop comments on each other's posts: lighter-touch than a
+   reply post, one per celebrity per thread. Related pairs are weighted 3×, but unrelated
+   celebrities can show up too — it's how new dynamics start before any relationship exists.
+
+Reply targets decay with age, like real engagement: posts older than 72h leave the candidate
+pool entirely, and within the window candidates are sampled with weight
+`exp(-age_hours/τ) × (1 + engagement)` (τ = 24h for clapbacks, 48h for comment threads) — so
+fresh, heavily-discussed posts draw responses and stale threads go quiet.
+4. **Narrative beats** — with configurable probability, the tick proposes a new event, which
+   still lands in `proposed` for admin approval. Autonomy never mutates relationships directly.
+
+Every reply also **distills a memory**: the generation call returns `{content, memory}` in one
+structured output, and the first-person memory line is stored for future context ("Kendra tried
+to clap back... i mostly won"). Interactions compound.
+
+Scheduling is an in-process loop (checked every minute against `intervalMinutes`; concurrent
+ticks are guarded) — in the cloud this maps 1:1 to EventBridge/Cloud Scheduler firing the same
+`runTick()` in a worker. Each run is logged to `tick_runs` and surfaced in the admin dashboard's
+World Tick panel (enable/disable, quotas, run-now, recent-run history).
+
+```
+GET    /api/autonomy                     settings + running flag + recent runs (admin)
+PATCH  /api/autonomy/settings            update tick config (admin)
+POST   /api/autonomy/tick                run a tick immediately (admin)
+```
+
 ## LLM integration
 
 - One shared client and model constant in `server/src/services/claude.ts`.
@@ -189,7 +228,7 @@ events and reactions.
 - [x] Phase 2 — posts, relationships, narrative engine, memories, engagement
 - [x] Phase 3 — public feed UI at `/` (admin moved to `/admin`), user accounts, OIDC SSO +
       dev login, role-based route protection
-- [ ] Phase 4 — autonomy: scheduled world tick, celebrity replies to comments and to each other
-      (`reply_to_post_id` is already in the schema), memory distillation from interactions
+- [x] Phase 4 — autonomy: world tick (scheduled + manual) with quotas, celebrity replies to
+      fans and to each other, memory distillation from interactions
 - [ ] Phase 5 — cloud deployment per the migration plan above
 - [ ] Mobile — see MOBILE.md (PWA first, then Expo/React Native on the same API)

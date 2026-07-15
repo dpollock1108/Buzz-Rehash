@@ -56,8 +56,16 @@ function migrateLikesTable(db: Database.Database): void {
 // denormalized display name so old rows keep rendering.
 function migrateCommentsTable(db: Database.Database): void {
   const columns = db.prepare("PRAGMA table_info(comments)").all() as { name: string }[];
-  if (columns.length === 0 || columns.some((c) => c.name === "user_id")) return;
-  db.exec("ALTER TABLE comments ADD COLUMN user_id TEXT REFERENCES users(id) ON DELETE SET NULL");
+  if (columns.length === 0) return;
+  if (!columns.some((c) => c.name === "user_id")) {
+    db.exec("ALTER TABLE comments ADD COLUMN user_id TEXT REFERENCES users(id) ON DELETE SET NULL");
+  }
+  // Phase 4: celebrities can reply inside their own comment threads
+  if (!columns.some((c) => c.name === "celebrity_id")) {
+    db.exec(
+      "ALTER TABLE comments ADD COLUMN celebrity_id TEXT REFERENCES celebrities(id) ON DELETE SET NULL"
+    );
+  }
 }
 
 export function initializeDatabase(db: Database.Database): void {
@@ -142,6 +150,8 @@ export function initializeDatabase(db: Database.Database): void {
     CREATE TABLE IF NOT EXISTS comments (
       id TEXT PRIMARY KEY,
       post_id TEXT NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+      user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      celebrity_id TEXT REFERENCES celebrities(id) ON DELETE SET NULL,
       author_name TEXT NOT NULL,
       content TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -158,6 +168,20 @@ export function initializeDatabase(db: Database.Database): void {
     );
 
     CREATE INDEX IF NOT EXISTS idx_likes_post ON likes(post_id);
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS tick_runs (
+      id TEXT PRIMARY KEY,
+      started_at TEXT NOT NULL,
+      finished_at TEXT,
+      trigger TEXT NOT NULL CHECK (trigger IN ('scheduled', 'manual')),
+      summary TEXT NOT NULL DEFAULT '{}'
+    );
 
     CREATE TABLE IF NOT EXISTS celebrity_memories (
       id TEXT PRIMARY KEY,

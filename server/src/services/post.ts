@@ -13,14 +13,19 @@ interface FeedPostRow {
   celebrity_handle: string;
   like_count: number;
   comment_count: number;
+  reply_to_name: string | null;
+  reply_to_handle: string | null;
 }
 
 const SELECT_FEED = `
   SELECT p.*, c.name AS celebrity_name, c.handle AS celebrity_handle,
     (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS like_count,
-    (SELECT COUNT(*) FROM comments cm WHERE cm.post_id = p.id) AS comment_count
+    (SELECT COUNT(*) FROM comments cm WHERE cm.post_id = p.id) AS comment_count,
+    rc.name AS reply_to_name, rc.handle AS reply_to_handle
   FROM posts p
   JOIN celebrities c ON c.id = p.celebrity_id
+  LEFT JOIN posts rp ON rp.id = p.reply_to_post_id
+  LEFT JOIN celebrities rc ON rc.id = rp.celebrity_id
 `;
 
 function rowToFeedPost(row: FeedPostRow): FeedPost {
@@ -35,6 +40,8 @@ function rowToFeedPost(row: FeedPostRow): FeedPost {
     celebrityHandle: row.celebrity_handle,
     likeCount: row.like_count,
     commentCount: row.comment_count,
+    replyToName: row.reply_to_name ?? undefined,
+    replyToHandle: row.reply_to_handle ?? undefined,
   };
 }
 
@@ -61,9 +68,16 @@ export function getPostById(id: string): FeedPost | undefined {
   return row ? rowToFeedPost(row) : undefined;
 }
 
+// created_at is stored as JS toISOString(); this produces the same shape from
+// SQLite's clock so string comparison is exact (plain datetime('now') formats
+// with a space instead of the ISO "T" and would misorder same-day boundaries).
+const SQLITE_NOW_ISO = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?)";
+
 export function listFeed(options?: {
   celebrityId?: string;
   eventId?: string;
+  /** Only posts newer than this many hours. */
+  sinceHours?: number;
   limit?: number;
   offset?: number;
 }): FeedPost[] {
@@ -77,6 +91,10 @@ export function listFeed(options?: {
   if (options?.eventId) {
     conditions.push("p.event_id = ?");
     params.push(options.eventId);
+  }
+  if (options?.sinceHours !== undefined) {
+    conditions.push(`p.created_at > ${SQLITE_NOW_ISO}`);
+    params.push(`-${options.sinceHours} hours`);
   }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const rows = db
@@ -97,6 +115,7 @@ interface CommentRow {
   id: string;
   post_id: string;
   user_id: string | null;
+  celebrity_id: string | null;
   author_name: string;
   content: string;
   created_at: string;
@@ -107,15 +126,18 @@ function rowToComment(row: CommentRow): Comment {
     id: row.id,
     postId: row.post_id,
     userId: row.user_id ?? undefined,
+    celebrityId: row.celebrity_id ?? undefined,
     authorName: row.author_name,
     content: row.content,
     createdAt: row.created_at,
   };
 }
 
+/** Add a comment authored by a user or by a celebrity (exactly one of the two). */
 export function addComment(data: {
   postId: string;
-  userId: string;
+  userId?: string;
+  celebrityId?: string;
   authorName: string;
   content: string;
 }): Comment {
@@ -123,10 +145,57 @@ export function addComment(data: {
   const id = uuidv4();
   const now = new Date().toISOString();
   db.prepare(
-    "INSERT INTO comments (id, post_id, user_id, author_name, content, created_at) VALUES (?, ?, ?, ?, ?, ?)"
-  ).run(id, data.postId, data.userId, data.authorName, data.content, now);
+    "INSERT INTO comments (id, post_id, user_id, celebrity_id, author_name, content, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  ).run(id, data.postId, data.userId ?? null, data.celebrityId ?? null, data.authorName, data.content, now);
   const row = db.prepare("SELECT * FROM comments WHERE id = ?").get(id) as CommentRow;
   return rowToComment(row);
+}
+
+export interface ThreadAwaitingReply {
+  postId: string;
+  celebrityId: string;
+  postCreatedAt: string;
+  /** Fan comments since the celebrity's last reply in the thread. */
+  pendingCount: number;
+}
+
+/**
+ * User comments awaiting a celebrity response: threads on a celebrity's posts
+ * where fans commented after the celebrity's last reply (or with no reply yet).
+ * Only fresh fan comments count — stale threads age out of the pool entirely.
+ */
+export function commentsAwaitingReply(withinHours = 72, limit = 20): ThreadAwaitingReply[] {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT p.id AS post_id, p.celebrity_id, p.created_at AS post_created_at,
+              COUNT(*) AS pending_count
+       FROM comments cm
+       JOIN posts p ON p.id = cm.post_id
+       WHERE cm.celebrity_id IS NULL
+         AND cm.created_at > ${SQLITE_NOW_ISO}
+         AND cm.created_at > COALESCE(
+           (SELECT MAX(c2.created_at) FROM comments c2
+            WHERE c2.post_id = cm.post_id AND c2.celebrity_id IS NOT NULL),
+           ''
+         )
+       GROUP BY p.id, p.celebrity_id, p.created_at
+       ORDER BY MAX(cm.created_at) DESC
+       LIMIT ?`
+    )
+    .all(`-${withinHours} hours`, limit) as {
+    post_id: string;
+    celebrity_id: string;
+    post_created_at: string;
+    pending_count: number;
+  }[];
+
+  return rows.map((r) => ({
+    postId: r.post_id,
+    celebrityId: r.celebrity_id,
+    postCreatedAt: r.post_created_at,
+    pendingCount: r.pending_count,
+  }));
 }
 
 export function listComments(postId: string): Comment[] {

@@ -12,6 +12,8 @@ import { celebritiesRouter } from "./routes/celebrities.js";
 import { postsRouter } from "./routes/posts.js";
 import { eventsRouter } from "./routes/events.js";
 import { relationshipsRouter } from "./routes/relationships.js";
+import { autonomyRouter } from "./routes/autonomy.js";
+import { startScheduler } from "./services/autonomy.js";
 
 // Load .env from repo root regardless of CWD (workspace scripts run from server/)
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -34,6 +36,10 @@ app.use(celebritiesRouter);
 app.use(postsRouter);
 app.use(eventsRouter);
 app.use(relationshipsRouter);
+app.use(autonomyRouter);
+
+// The world keeps turning (when enabled in autonomy settings)
+startScheduler();
 
 app.listen(PORT, () => {
   console.log(`Buzz Rehash server running on http://localhost:${PORT}`);

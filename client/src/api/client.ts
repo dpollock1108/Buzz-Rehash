@@ -1,5 +1,8 @@
 import type {
   AuthInfo,
+  AutonomySettings,
+  AutonomyStatus,
+  TickRun,
   Celebrity,
   CelebrityMemory,
   CelebrityStatus,
@@ -142,6 +145,25 @@ export function updateEventStatus(id: string, status: EventStatus): Promise<Narr
 
 export function generateReactions(eventId: string): Promise<FeedPost[]> {
   return request<FeedPost[]>(`/api/events/${eventId}/reactions`, { method: "POST" });
+}
+
+// --- Autonomy ---
+
+export function getAutonomyStatus(): Promise<AutonomyStatus> {
+  return request<AutonomyStatus>("/api/autonomy");
+}
+
+export function updateAutonomySettings(
+  patch: Partial<AutonomySettings>
+): Promise<AutonomySettings> {
+  return request<AutonomySettings>("/api/autonomy/settings", {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export function runTickNow(): Promise<TickRun> {
+  return request<TickRun>("/api/autonomy/tick", { method: "POST" });
 }
 
 // --- Relationships ---

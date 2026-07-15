@@ -26,7 +26,7 @@ export default function PublicCelebrity() {
   }, [id, authLoading]);
 
   if (loading) return <p className="text-gray-500">Loading...</p>;
-  if (!celebrity) return <p className="text-gray-500">This celebrity doesn't exist. Iconic.</p>;
+  if (!celebrity) return <p className="text-gray-500">This influencer doesn't exist. Iconic.</p>;
 
   return (
     <div>

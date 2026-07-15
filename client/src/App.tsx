@@ -3,9 +3,7 @@ import Layout from "./components/Layout";
 import PublicLayout from "./components/PublicLayout";
 import AdminGuard from "./components/AdminGuard";
 import Dashboard from "./pages/Dashboard";
-import PendingReview from "./pages/PendingReview";
-import ApprovedList from "./pages/ApprovedList";
-import DeniedList from "./pages/DeniedList";
+import Influencers from "./pages/Influencers";
 import CelebrityDetail from "./pages/CelebrityDetail";
 import Feed from "./pages/Feed";
 import Events from "./pages/Events";
@@ -26,9 +24,7 @@ export default function App() {
       <Route path="/admin" element={<AdminGuard />}>
         <Route element={<Layout />}>
           <Route index element={<Dashboard />} />
-          <Route path="pending" element={<PendingReview />} />
-          <Route path="approved" element={<ApprovedList />} />
-          <Route path="denied" element={<DeniedList />} />
+          <Route path="influencers" element={<Influencers />} />
           <Route path="celebrities/:id" element={<CelebrityDetail />} />
           <Route path="feed" element={<Feed />} />
           <Route path="events" element={<Events />} />

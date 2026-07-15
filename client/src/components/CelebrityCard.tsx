@@ -13,7 +13,14 @@ export default function CelebrityCard({ celebrity }: { celebrity: Celebrity }) {
           <h3 className="text-white font-semibold text-lg">{celebrity.name}</h3>
           <p className="text-purple-400 text-sm">{celebrity.handle}</p>
         </div>
-        <StatusBadge status={celebrity.status} />
+        <div className="flex gap-1.5 shrink-0">
+          {celebrity.retired && (
+            <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium border bg-gray-500/20 text-gray-300 border-gray-500/40">
+              retired
+            </span>
+          )}
+          <StatusBadge status={celebrity.status} />
+        </div>
       </div>
       <p className="text-gray-400 text-sm line-clamp-2 mb-3">{celebrity.bio}</p>
       {celebrity.attributes.genres && celebrity.attributes.genres.length > 0 && (

@@ -59,11 +59,11 @@ export default function Feed() {
       <div className="bg-gray-800 border border-gray-700 rounded-lg p-5 mb-8">
         <h3 className="text-lg font-semibold text-white mb-3">Generate Post</h3>
         {celebrities.length === 0 ? (
-          <p className="text-gray-500 text-sm">Approve some celebrities first.</p>
+          <p className="text-gray-500 text-sm">Approve some influencers first.</p>
         ) : (
           <div className="flex gap-3 items-end flex-wrap">
             <div>
-              <label className="block text-gray-400 text-sm mb-1">Celebrity</label>
+              <label className="block text-gray-400 text-sm mb-1">Influencer</label>
               <select
                 value={selectedCelebrity}
                 onChange={(e) => setSelectedCelebrity(e.target.value)}
@@ -107,7 +107,7 @@ export default function Feed() {
           onChange={(e) => handleFilterChange(e.target.value)}
           className="bg-gray-900 border border-gray-600 rounded px-3 py-1.5 text-white text-sm focus:outline-none focus:border-purple-500"
         >
-          <option value="">All celebrities</option>
+          <option value="">All influencers</option>
           {celebrities.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}

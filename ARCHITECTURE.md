@@ -52,7 +52,7 @@ Postgres. JSON columns (`attributes`, `relationship_changes`) map to `jsonb`.
 
 | Table | Purpose | Key columns |
 |---|---|---|
-| `celebrities` | The cast | `handle` (unique), `personality`, `writing_voice`, `backstory`, `attributes` (JSON), `status` (`pending`/`approved`/`denied`) |
+| `celebrities` | The cast (surfaced as "influencers" in the UI) | `handle` (unique), `personality`, `writing_voice`, `backstory`, `attributes` (JSON), `status` (`pending`/`approved`/`denied`), `retired` (0/1 — dormant but revivable, orthogonal to status) |
 | `celebrity_relationships` | Dynamic pairwise relationships | `celebrity_a_id`, `celebrity_b_id`, `type` (friend, rival, ex, dating, married, situationship, ...), `description` |
 | `events` | Narrative beats | `title`, `description` (internal lore), `type` (feud, romance, scandal, ...), `status` (`proposed`→`active`→`resolved`, or `denied`), `relationship_changes` (JSON, applied on approval) |
 | `event_participants` | Who's involved and how | `(event_id, celebrity_id)` PK, `role` (e.g. "instigator", "love interest") |
@@ -73,6 +73,26 @@ Design notes:
   generation time, so denying an event has no side effects.
 - **Like/comment counts are computed** (subqueries) rather than denormalized. Fine at this
   scale; add counter columns or a materialized view when the feed gets hot.
+- **Retirement is orthogonal to status.** A retired influencer is still `approved` — posts,
+  relationships, and memories persist and stay referenceable — but `listActiveCast()`
+  (`approved AND retired = 0`) excludes them, so the world tick and new auto-generated events
+  never pick them as actors. Flip the flag to bring them back; the admin can still manually
+  generate posts for a retired influencer.
+
+## Influencer management (admin)
+
+The admin UI calls them **influencers** (the DB/API keep the `celebrity` model). A single
+**Influencers** page consolidates the roster with All / Pending / Approved / Retired / Denied
+sub-tabs. The detail page doubles as an editor: an Edit mode over every field, a Retire /
+Un-retire toggle, and inline relationship add/remove (for approved influencers). Editing a
+**significant** trait — name, personality, writing voice, or backstory — on an approved
+influencer records a first-person "rebrand" memory (`source_type: manual`, importance 6), so a
+persona overhaul feeds forward into future generations as something they remember.
+
+```
+PATCH  /api/celebrities/:id              edit influencer fields (admin); 409 on handle clash
+PATCH  /api/celebrities/:id/retire       { retired } toggle (admin)
+```
 
 ## Auth
 

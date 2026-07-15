@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { getDb } from "../db/connection.js";
 import type { AutonomySettings, TickRun, TickSummary } from "../types.js";
-import { listByStatus } from "./celebrity.js";
+import { listActiveCast } from "./celebrity.js";
 import { generateEvent } from "./narrative.js";
 import { commentsAwaitingReply, listComments, listFeed } from "./post.js";
 import {
@@ -151,7 +151,7 @@ export async function runTick(trigger: "scheduled" | "manual"): Promise<TickRun>
   const settings = getSettings();
 
   try {
-    const cast = listByStatus("approved");
+    const cast = listActiveCast();
     const relationships = listRelationships();
     const related = (a: string, b: string) =>
       relationships.some(

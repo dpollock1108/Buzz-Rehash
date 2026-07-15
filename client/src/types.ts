@@ -42,8 +42,19 @@ export interface Celebrity {
   backstory: string;
   attributes: CelebrityAttributes;
   status: CelebrityStatus;
+  retired: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CelebrityEdit {
+  name?: string;
+  handle?: string;
+  bio?: string;
+  personality?: string;
+  writingVoice?: string;
+  backstory?: string;
+  attributes?: CelebrityAttributes;
 }
 
 export interface CelebrityRelationship {
@@ -72,6 +83,7 @@ export interface StatsResponse {
   pending: number;
   approved: number;
   denied: number;
+  retired: number;
 }
 
 export type EventType =

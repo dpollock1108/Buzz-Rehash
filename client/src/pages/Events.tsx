@@ -200,7 +200,7 @@ export default function Events() {
       <div className="bg-gray-800 border border-gray-700 rounded-lg p-5 mb-8">
         <h3 className="text-lg font-semibold text-white mb-3">Generate Event</h3>
         {celebrities.length < 1 ? (
-          <p className="text-gray-500 text-sm">Approve some celebrities first.</p>
+          <p className="text-gray-500 text-sm">Approve some influencers first.</p>
         ) : (
           <>
             <div className="flex gap-3 items-end flex-wrap">

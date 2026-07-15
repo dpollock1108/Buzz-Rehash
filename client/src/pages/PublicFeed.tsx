@@ -23,7 +23,7 @@ export default function PublicFeed() {
       {loading ? (
         <p className="text-gray-500">Loading the drama...</p>
       ) : posts.length === 0 ? (
-        <p className="text-gray-500">Nothing here yet. The celebrities are being quiet.</p>
+        <p className="text-gray-500">Nothing here yet. The influencers are being quiet.</p>
       ) : (
         <div className="space-y-4">
           {posts.map((post) => (

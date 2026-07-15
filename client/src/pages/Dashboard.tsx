@@ -6,7 +6,12 @@ import type { StatsResponse } from "../types";
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [stats, setStats] = useState<StatsResponse>({ pending: 0, approved: 0, denied: 0 });
+  const [stats, setStats] = useState<StatsResponse>({
+    pending: 0,
+    approved: 0,
+    denied: 0,
+    retired: 0,
+  });
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,14 +45,18 @@ export default function Dashboard() {
       <h2 className="text-3xl font-bold text-white mb-8">Dashboard</h2>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-10">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
         <div className="bg-gray-800 border border-gray-700 rounded-lg p-5 text-center">
           <p className="text-3xl font-bold text-yellow-400">{stats.pending}</p>
           <p className="text-gray-400 text-sm mt-1">Pending Review</p>
         </div>
         <div className="bg-gray-800 border border-gray-700 rounded-lg p-5 text-center">
           <p className="text-3xl font-bold text-green-400">{stats.approved}</p>
-          <p className="text-gray-400 text-sm mt-1">Approved</p>
+          <p className="text-gray-400 text-sm mt-1">Active</p>
+        </div>
+        <div className="bg-gray-800 border border-gray-700 rounded-lg p-5 text-center">
+          <p className="text-3xl font-bold text-gray-400">{stats.retired}</p>
+          <p className="text-gray-400 text-sm mt-1">Retired</p>
         </div>
         <div className="bg-gray-800 border border-gray-700 rounded-lg p-5 text-center">
           <p className="text-3xl font-bold text-red-400">{stats.denied}</p>
@@ -57,7 +66,7 @@ export default function Dashboard() {
 
       {/* Generator */}
       <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
-        <h3 className="text-xl font-semibold text-white mb-4">Generate Celebrity</h3>
+        <h3 className="text-xl font-semibold text-white mb-4">Generate Influencer</h3>
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
             <label className="block text-gray-400 text-sm mb-1">Genres (optional, comma-separated)</label>
@@ -85,7 +94,7 @@ export default function Dashboard() {
           disabled={generating}
           className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-not-allowed text-white font-medium px-6 py-2.5 rounded-lg transition-colors"
         >
-          {generating ? "Generating..." : "Generate New Celebrity"}
+          {generating ? "Generating..." : "Generate New Influencer"}
         </button>
         {error && <p className="mt-3 text-red-400 text-sm">{error}</p>}
       </div>

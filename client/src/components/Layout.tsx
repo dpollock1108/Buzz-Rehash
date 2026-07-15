@@ -3,9 +3,7 @@ import { useAuth } from "../auth";
 
 const links = [
   { to: "/admin", label: "Dashboard" },
-  { to: "/admin/pending", label: "Pending Review" },
-  { to: "/admin/approved", label: "Approved" },
-  { to: "/admin/denied", label: "Denied" },
+  { to: "/admin/influencers", label: "Influencers" },
   { to: "/admin/feed", label: "Feed" },
   { to: "/admin/events", label: "Narrative Engine" },
   { to: "/admin/relationships", label: "Relationships" },

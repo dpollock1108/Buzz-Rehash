@@ -76,12 +76,12 @@ export default function Relationships() {
       <div className="bg-gray-800 border border-gray-700 rounded-lg p-5 mb-8">
         <h3 className="text-lg font-semibold text-white mb-3">Add Relationship</h3>
         {celebrities.length < 2 ? (
-          <p className="text-gray-500 text-sm">You need at least two approved celebrities.</p>
+          <p className="text-gray-500 text-sm">You need at least two approved influencers.</p>
         ) : (
           <>
             <div className="grid grid-cols-3 gap-3 mb-3">
               <div>
-                <label className="block text-gray-400 text-sm mb-1">Celebrity A</label>
+                <label className="block text-gray-400 text-sm mb-1">Influencer A</label>
                 <select
                   value={celebrityA}
                   onChange={(e) => setCelebrityA(e.target.value)}
@@ -98,7 +98,7 @@ export default function Relationships() {
                 </select>
               </div>
               <div>
-                <label className="block text-gray-400 text-sm mb-1">Celebrity B</label>
+                <label className="block text-gray-400 text-sm mb-1">Influencer B</label>
                 <select
                   value={celebrityB}
                   onChange={(e) => setCelebrityB(e.target.value)}

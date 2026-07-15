@@ -4,6 +4,7 @@ import type {
   AutonomyStatus,
   TickRun,
   Celebrity,
+  CelebrityEdit,
   CelebrityMemory,
   CelebrityStatus,
   Comment,
@@ -70,6 +71,20 @@ export function updateCelebrityStatus(id: string, status: CelebrityStatus): Prom
   return request<Celebrity>(`/api/celebrities/${id}/status`, {
     method: "PATCH",
     body: JSON.stringify({ status }),
+  });
+}
+
+export function updateCelebrity(id: string, edit: CelebrityEdit): Promise<Celebrity> {
+  return request<Celebrity>(`/api/celebrities/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(edit),
+  });
+}
+
+export function setCelebrityRetired(id: string, retired: boolean): Promise<Celebrity> {
+  return request<Celebrity>(`/api/celebrities/${id}/retire`, {
+    method: "PATCH",
+    body: JSON.stringify({ retired }),
   });
 }
 

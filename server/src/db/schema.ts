@@ -6,6 +6,15 @@ const RELATIONSHIP_TYPES =
 // The original relationships table had a narrower CHECK constraint (no romantic
 // types). SQLite can't alter a CHECK in place, so rebuild the table if the old
 // constraint is detected, preserving any rows.
+// Phase QOL: influencers can be retired (dormant but revivable).
+function migrateCelebritiesTable(db: Database.Database): void {
+  const columns = db.prepare("PRAGMA table_info(celebrities)").all() as { name: string }[];
+  if (columns.length === 0) return;
+  if (!columns.some((c) => c.name === "retired")) {
+    db.exec("ALTER TABLE celebrities ADD COLUMN retired INTEGER NOT NULL DEFAULT 0");
+  }
+}
+
 function migrateRelationshipsTable(db: Database.Database): void {
   const row = db
     .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'celebrity_relationships'")
@@ -92,6 +101,7 @@ export function initializeDatabase(db: Database.Database): void {
       backstory TEXT NOT NULL,
       attributes TEXT NOT NULL DEFAULT '{}',
       status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'denied')),
+      retired INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -196,6 +206,7 @@ export function initializeDatabase(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_memories_celebrity ON celebrity_memories(celebrity_id);
   `);
 
+  migrateCelebritiesTable(db);
   migrateRelationshipsTable(db);
   migrateLikesTable(db);
   migrateCommentsTable(db);

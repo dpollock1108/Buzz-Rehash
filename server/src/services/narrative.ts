@@ -7,7 +7,7 @@ import type {
   RelationshipType,
 } from "../types.js";
 import { EVENT_TYPES, RELATIONSHIP_TYPES } from "../types.js";
-import { listByStatus } from "./celebrity.js";
+import { listActiveCast } from "./celebrity.js";
 import { generateJson } from "./claude.js";
 import { createEvent, getEventById, listEvents, setEventStatus } from "./event.js";
 import { addMemory } from "./memory.js";
@@ -86,7 +86,7 @@ const EVENT_SCHEMA = {
 };
 
 export async function generateEvent(request?: EventGenerationRequest): Promise<NarrativeEvent> {
-  const approved = listByStatus("approved");
+  const approved = listActiveCast();
   if (approved.length === 0) {
     throw new Error("No approved celebrities in the ecosystem yet");
   }

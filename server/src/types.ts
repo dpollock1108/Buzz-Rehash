@@ -42,8 +42,21 @@ export interface Celebrity {
   backstory: string;
   attributes: CelebrityAttributes;
   status: CelebrityStatus;
+  /** Retired influencers stay in the world but are skipped by the world tick. */
+  retired: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Fields an admin can edit on an existing influencer. */
+export interface CelebrityEdit {
+  name?: string;
+  handle?: string;
+  bio?: string;
+  personality?: string;
+  writingVoice?: string;
+  backstory?: string;
+  attributes?: CelebrityAttributes;
 }
 
 export interface CelebrityRelationship {
